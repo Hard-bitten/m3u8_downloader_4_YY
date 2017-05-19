@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on 20170113
+Created on 20170519
 
-@author: WHUER
+@author: XDLiu 
+Thanks for WHUER https://github.com/xuyuanfang/m3u8_downloader_4_yingke
 """
 
 import re
