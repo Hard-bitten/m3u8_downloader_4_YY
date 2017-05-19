@@ -88,10 +88,14 @@ if __name__ == '__main__':
     if end_flag!=0:
         i = 0
         while m3u8_info[0][i] <= start_flag:
+            if i >= m3u8_num:
+                break
             i+=1
         start = i
         
         while m3u8_info[0][i] <= end_flag:
+            if i >= m3u8_num:
+                break
             i+=1
         end = i
     
