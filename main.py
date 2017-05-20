@@ -138,7 +138,7 @@ if __name__ == '__main__':
     fromdir = path + '\\ts\\'
     tofile = path + '\\' + title + '[' + str(start_flag) + '-' + str(end_flag) + ']' + '.ts'
     join(fromdir, tofile)
-    print ('合并文件开始成功！')
+    print ('合并文件成功！')
     
     shutil.rmtree(fromdir)
     os.mkdir(fromdir)
