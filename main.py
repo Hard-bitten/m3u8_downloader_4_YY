@@ -17,12 +17,19 @@ import os,sys
 def get_m3u8_file(url):
     re_data = requests.get(url).text
     m3u8_url = re.findall('[a-zA-z]+://[^\s]*.m3u8', re_data)
-    m3u8_title = re.findall('title: "[^\x00-\xff]*"', re_data)
+    m3u8_title = re.findall('title: "[\S]*"', re_data)
+    m3u8_begin = re.findall('begin:"[0-9]*"', re_data)
+    m3u8_end = re.findall('end:"[0-9]*"', re_data)
     title =  m3u8_title[0][8:-1]
-    print(m3u8_title)
+    begin = int(m3u8_begin[0][7:-1])
+    end = int(m3u8_end[0][5:-1])
+    print( '直播网页解析成功：\n',
+           'm3u8路径：',m3u8_url[0],'\n',
+           '录像标题：',title,'\n',
+           '录像时长：',end - begin,' s'
+         )
     m3u8_file = requests.get(m3u8_url[0]).content
-    path = os.getcwd()
-    savepath_filename = path + '\\' + os.path.basename(url)
+    savepath_filename = os.getcwd() + '\\' + os.path.basename(url)
     output = open(savepath_filename, 'wb')
     output.write(m3u8_file)
     output.close()
@@ -37,11 +44,10 @@ def get_m3u8_info(m3u8_filename):
         line_info = re.findall('[a-zA-z]+://[^\s]*', line)
         if line.find("#EXTINF:") != -1:
             m3u8_info[0].append(total_time)
-            total_time += float(re.findall('[1-9].[0-9]*',line)[0])
+            total_time += float(re.findall('[0-9]*\.?[0-9]+',line)[0])
         if line_info != []:
             m3u8_info[1].append(line_info[0])
     f.close()
-    #print('录像时长：'+time.strtime('%H:%M:%S',time.gmtime(total_time)))
     return m3u8_info
 
 def downloader(url, savepath_filename):
@@ -51,19 +57,41 @@ def downloader(url, savepath_filename):
     output.close()
 
 ##############################################################################################################
+class ProgressBar:
+    def __init__(self,count = 0,total = 0,width = 90):
+        self.count = count
+        self.total = total
+        self.width = width
+    def move(self):
+        self.count += 1
+    def log(self):
+        sys.stdout.write(' ' * (self.width + 9) + '\r')
+        sys.stdout.flush()
+        progress = int(self.width * self.count / self.total)
+        sys.stdout.write('{0:4}/{1:4}:'.format(self.count,self.total))
+        sys.stdout.write('#'* progress +'-'*(self.width - progress)+'\r')
+        if progress == self.width:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+##############################################################################################################
 if __name__ == '__main__':
     url = ''
     title = ''
     start_flag = 0
     end_flag = 0
-    print(len(sys.argv))
     if len(sys.argv) == 2 and sys.argv[1] == '-help':
-        print ('Use: main.py [url]')
+        print ('Use: main.py [url]\n',
+               'Use: main.py [url] [start] [end]\n',
+               'NOTICE:[start] and [end] by seconds')
         exit() 
-    if len(sys.argv) == 4 :
+    if len(sys.argv) >= 4 :
         url = sys.argv[1]    
         start_flag = float(sys.argv[2])
         end_flag = float(sys.argv[3])
+        if start_flag > end_flag: #防止智障
+            temp = end_flag
+            end_flag = start_flag
+            start_flag = temp  
     else:
         url = sys.argv[1]
     print('欢迎使用YY录像下载工具，正在下载的url为：'+url)
@@ -73,22 +101,18 @@ if __name__ == '__main__':
     if not os.path.exists(tmp_path):
         os.makedirs(tmp_path)
         print('创建临时文件夹成功')
+    print('---------------------------------------------------------------------------------------')
     
     (m3u8_filename,title) = get_m3u8_file(url)
-    print (title)
     m3u8_info = get_m3u8_info(m3u8_filename)
-
     m3u8_num = len(m3u8_info[1])
 
-    print ('m3u8的分片数为： ' + str(m3u8_num))
-    starttime = datetime.datetime.now()
-    
     start = 0
-    end = m3u8_num-1
+    end = m3u8_num - 1
     if end_flag!=0:
         i = 0
         while m3u8_info[0][i] <= start_flag:
-            if i >= m3u8_num:
+            if i >= m3u8_num:#防止智障
                 break
             i+=1
         start = i
@@ -99,19 +123,20 @@ if __name__ == '__main__':
             i+=1
         end = i
     
+    #下载分片文件
+    pro = ProgressBar(total = end+1-start) 
+    starttime = datetime.datetime.now()
     for i in range(start,end+1):
-        print ('正在下载： ' + m3u8_info[1][i] + ' ['+ str(i + 1- start) +'/' + str(end + 1 - start) + ']')
-        #ts_url = url_ + id + '/' + m3u8_info[i]
         savepath_filename = path + '\\ts\\' + '%06d'%i + '.ts'
         downloader(m3u8_info[1][i] , savepath_filename)
         untilnowtime = datetime.datetime.now()
         interval = (untilnowtime - starttime).seconds
-        print ('已经下载了： ' + str(interval) + 's')
+        pro.move()
+        pro.log()
     
-    
+    #下面开始合并文件
     fromdir = path + '\\ts\\'
-    tofile = path + '\\' + title +str(start_flag) + '-' + str(end_flag)+ '.ts'
-    print ('合并文件开始！')
+    tofile = path + '\\' + title + '[' + str(start_flag) + '-' + str(end_flag) + ']' + '.ts'
     join(fromdir, tofile)
     print ('合并文件开始成功！')
     
